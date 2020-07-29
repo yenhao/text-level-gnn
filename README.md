@@ -9,7 +9,7 @@ Implementation of paper: [Text Level Graph Neural Network for Text Classificatio
 Please refer to [textGCN](https://github.com/yao8839836/text_gcn/tree/master/data) and copy the **R8, R52, mr, ohsumed_single_23** to dataset folder.
 
 For word embeddings, please refer to [GloVe](https://nlp.stanford.edu/projects/glove/). We currently support two kinds of embeddings:
-1. Twitter 27B (100d & 200d)
+1. Twitter 27B (100d & 200d): Perform better than wiki one in our implementation.
 2. Wiki + Gigaword 6B (300d)
 
 Please download these files and move to `embeddings` folder.
@@ -32,22 +32,17 @@ Currently support `DATASET_NAME`: R8, R52, 20ng, Ohsumed.
 ---
 ## Current Results
 
+We are able to re-implement similar result on R8 and R52 dataset, while Ohsumed perform quite difference as compared to paper's one.
 
-R8 (8 cls)
-Acc: 62.6%(train)   96.3%(valid)    96.4%(test)
-
-R52 (52 cls)
-Acc: 56.8%(train)   90.7%(valid)    91.0%(test)
-
-20ng (20 cls)
-Acc: 44.8%(train)   60.7%(valid)    55.6%(test)
-
-Ohsumed (23 cls)
-Acc: 16.0%(train)   16.3%(valid)    23.4%(test)
-
+| Accuracy | R8    | R52   | 20NG  | Ohsumed | MR |
+|----------|-------|-------|-------|---------|----|
+| Train    | 62.6% | 56.8% | 44.8% | 16.0%   | -  |
+| Valid    | 96.3% | 90.7% | 60.7% | 16.3%   | -  |
+| Test     | 96.4% | 91.0% | 55.6% | 23.4%   | -  |
 
 ---
 ## Todo
 1. **Implement the public edge**: not sure about what the public edge is.(Besides, we uniformly map the edges that occur less than k times in the training set to a “public” edge to make parameters adequately trained.)
 2. Result Improvement.
-3. Save model.
+3. Figure out why trainind accuracy is way lower than validation and testing set.
+4. Save model.
