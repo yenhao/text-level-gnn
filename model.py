@@ -104,7 +104,7 @@ class TextLevelGNN_Model:
                 if early_stop_monitor == "loss":
                     if valid_loss > best_var_loss:
                         step_from_best +=1
-                        if step_from_best > 25:
+                        if step_from_best > early_stop_epochs:
                             print("Early Stop!")
                             step_from_best =0
                             break
@@ -117,7 +117,7 @@ class TextLevelGNN_Model:
                 elif early_stop_monitor == "accuracy":
                     if valid_acc < best_var_acc:
                         step_from_best +=1
-                        if step_from_best > 25:
+                        if step_from_best > early_stop_epochs:
                             print("Early Stop!")
                             step_from_best =0
                             break
@@ -190,7 +190,7 @@ class TextLevelGNN(nn.Module):
 
         if type(embeddings) != int:
             print("\tConstruct pretrained embeddings")
-            self.node_embedding = nn.Embedding.from_pretrained(embeddings, freeze=True, padding_idx=0)
+            self.node_embedding = nn.Embedding.from_pretrained(embeddings, freeze=False, padding_idx=0)
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 

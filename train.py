@@ -8,7 +8,7 @@ import model
 
 # get experiment dataset
 if len(sys.argv) != 2:
-    print("Run as : CUDA_VISIBLE_DEVICES=0 python3 train_textlevel_gnn.py DATASET_NAME")
+    print("Argument error!\nPlease run as : CUDA_VISIBLE_DEVICES=0 python3 train.py DATASET_NAME")
     exit()
 
 experiment_dataset = sys.argv[1]
@@ -26,7 +26,7 @@ N_EPOCHS = 500
 BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
-EARLY_STOP_EPOCHS = 20  # after n_epochs not improve then stop training
+EARLY_STOP_EPOCHS = 200  # after n_epochs not improve then stop training
 EARLY_STOP_MONITOR = "loss" # monitor early stop on validation's loss or accuracy.
 ###
 
