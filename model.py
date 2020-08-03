@@ -150,7 +150,8 @@ class TextLevelGNN_Model:
         print('\n End Training. Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
         print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
-        pprint("\Top 5 accuracy of testing record is found at:", list(sorted(best_test, key=lambda epoch_loss_acc: epoch_loss_acc[2], reverse=True))[:5])
+        print("Top 5 accuracy of testing record is found at (epoch, loss, accuracy):")
+        pprint(list(sorted(best_test, key=lambda epoch_loss_acc: epoch_loss_acc[2], reverse=True))[:5])
         
     def train_func(self, data_train, batch_size, criterion, optimizer):
 
