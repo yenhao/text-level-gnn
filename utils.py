@@ -6,13 +6,13 @@ from nltk.tokenize import TweetTokenizer
 import multiprocessing as mp
 
 
-def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict = {'R8':'R8', 'R52':'R52', '20ng':'20ng', 'Ohsumed':'ohsumed_single_23'}):
+def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict = {'R8':'R8', 'R52':'R52', '20ng':'20ng', 'Ohsumed':'ohsumed_single_23', 'MR':'mr'}):
     """Read the dataset by handling multiple datasets' structure for each experiment and return in pandas DataFrame format.
 
     Args:
         exp_dataset (str): The experiment dataset to conduct.
         data_path (str, optional): The folders that store the dataset. Defaults to 'dataset'.
-        dataset2folder (dict, optional): The dictionary mapping for the name and folder_name of the dataset. Defaults to {'R8':'R8', 'R52':'R52', '20ng':'20ng', 'Ohsumed':'ohsumed_single_23'}.
+        dataset2folder (dict, optional): The dictionary mapping for the name and folder_name of the dataset. Defaults to {'R8':'R8', 'R52':'R52', '20ng':'20ng', 'Ohsumed':'ohsumed_single_23', 'MR':'mr'}.
 
     Returns:
         pandas.DataFrame: The DataFrame is constructed with columns: 1.target - Specify the each row of data is for train or test purpose.
@@ -25,8 +25,9 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
     if exp_dataset=='R8' or exp_dataset =='R52':
         targets = ['train.txt', 'test.txt']
         for target in targets:
-            trainind_data_path = os.path.join(data_path, dataset2folder[exp_dataset], target)
-            lines = open(trainind_data_path).readlines()
+            text_data_path = os.path.join(data_path, dataset2folder[exp_dataset], target)
+            with open(text_data_path) as f:
+                lines = f.readlines()
 
             for line in lines:
                 label, text = line.strip().split('\t')
@@ -41,7 +42,8 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
             trainind_data_path = os.path.join(data_path, dataset2folder[exp_dataset], target)
             for label in os.listdir(trainind_data_path):
                 for doc in os.listdir(os.path.join(trainind_data_path, label)):
-                    lines = open(os.path.join(trainind_data_path, label, doc)).readlines()
+                    with open(os.path.join(trainind_data_path, label, doc)) as f:
+                        lines = f.readlines()
                     text = " ".join([line.strip() for line in lines])
 
                     # add doc
@@ -56,6 +58,16 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
 
 
             dataset += list(map(lambda sample: (target, data['target_names'][sample[0]], sample[1].replace("\n", " ")), zip(data['target'], data['data'])))
+    # movie review
+    elif exp_dataset == 'MR':
+        for target in ['train', 'test']:
+            text_data_path = os.path.join(data_path, dataset2folder[exp_dataset], "text_{}.txt".format(target))
+            with open(text_data_path, 'rb') as f:
+                text_lines = f.readlines()
+            label_data_path = os.path.join(data_path, dataset2folder[exp_dataset], "label_{}.txt".format(target))
+            with open(label_data_path, 'rb') as f:
+                label_lines = f.readlines()
+            dataset += [(target, str(label.strip()), str(text.strip())) for (text, label) in zip(text_lines, label_lines)]
     else:
         print("Wrong dataset!")
         exit()

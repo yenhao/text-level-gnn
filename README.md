@@ -27,18 +27,18 @@ We keep the parameter as the same in the paper with `BATCH_SIZE = 32`, `learning
 
 Run the code by `python3 train_textlevel_gnn.py DATASET_NAME`.
 
-Currently support `DATASET_NAME`: R8, R52, 20ng, Ohsumed.
+Currently support `DATASET_NAME`: R8, R52, 20ng, Ohsumed, MR.
 
 ---
 ## Current Results
 
 We are able to re-implement similar result on R8 and R52 dataset, while Ohsumed perform quite difference as compared to paper's one.
 
-| Accuracy | R8    | R52   | 20NG  | Ohsumed | MR |
-|----------|-------|-------|-------|---------|----|
-| Train    | 62.6% | 56.8% | 44.8% | 16.0%   | -  |
-| Valid    | 96.3% | 90.7% | 60.7% | 16.3%   | -  |
-| Test     | 96.4% | 91.0% | 55.6% | 23.4%   | -  |
+| Accuracy | R8    | R52   | 20NG  | Ohsumed | MR   |
+|----------|-------|-------|-------|---------|------|
+| Train    | 62.6% | 56.8% | 44.8% | 42.9%   | 69.3%|
+| Valid    | 96.3% | 93.3% | 60.7% | 58.0%   | 72.0%|
+| Test     | 96.4% | 91.7% | 55.6% | 54.1%   | 69.0%|
 
 ---
 ## Todo

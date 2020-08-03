@@ -18,7 +18,7 @@ print("Experiment on :", experiment_dataset) #, sys.argv)
 MIN_WORD_COUNT = 15  # the word with frequency less than this num will be remove and consider as unknown word later on (probabily is the k mention in paper)
 NEIGHBOR_DISTANCE = 2  # same as paper's one
 
-WORD_EMBED_DIM = 300 # dimension for word embedding
+WORD_EMBED_DIM = 200 # dimension for word embedding
 PRETRAIN_EMBEDDING = True  # use pretrain embedding or not
 PRETRAIN_EMBEDDING_FIX = False # skip the training for pretrain embedding or not
 MODEL_MAX_SEQ_LEN = 0  # the length of text should the model encode/learning, set 0 to consider all
@@ -31,7 +31,7 @@ BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
 EARLY_STOP_EPOCHS = 50  # after n_epochs not improve then stop training
-EARLY_STOP_MONITOR = "accuracy" # monitor early stop on validation's loss or accuracy.
+EARLY_STOP_MONITOR = "loss" # monitor early stop on validation's loss or accuracy.
 ###
 
 # Read dataset
@@ -65,8 +65,8 @@ text_level_gnn.train_eval(N_EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY, EAR
 R8 (8 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:235]
 Acc: 63.1%(train)   97.8%(valid)    96.6%(test)
 
-R52 (52 cls)
-Acc: 56.8%(train)   90.7%(valid)    91.0%(test)
+R52 (52 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:324]
+Acc: 55.6%(train)   93.3%(valid)    91.7%(test)
 
 20ng (20 cls) [embedding_dim=200, early_stop_monitor="accuracy"]
 Acc: 47.3%(train)       64.2%(valid)    57.2%(test)
