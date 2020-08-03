@@ -42,7 +42,7 @@ We are able to re-implement similar result on R8 and R52 dataset, while Ohsumed 
 
 ---
 ## Todo
-1. **Implement the public edge**: not sure about what the public edge is.(Besides, we uniformly map the edges that occur less than k times in the training set to a “public” edge to make parameters adequately trained.)
-2. Result Improvement.
-3. Figure out why trainind accuracy is way lower than validation and testing set.
-4. Save model.
+- [x] **Implement the public edge**: Implement by adding an **UNKNOW** word node, but not sure about what the public edge really is.(In paper: *we uniformly map the edges that occur less than k times in the training set to a “public” edge to make parameters adequately trained.*)
+- [ ] Result Improvement.
+- [ ] Figure out why trainind accuracy is way lower than validation and testing set.
+- [ ] Save model.
