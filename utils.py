@@ -25,7 +25,7 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
     if exp_dataset=='R8' or exp_dataset =='R52':
         targets = ['train.txt', 'test.txt']
         for target in targets:
-            trainind_data_path = os.path.join(DATA_PATH, exp_dataset, target)
+            trainind_data_path = os.path.join(data_path, dataset2folder[exp_dataset], target)
             lines = open(trainind_data_path).readlines()
 
             for line in lines:
@@ -35,10 +35,10 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
                 dataset.append((target[:-4], label, text))
 
     # ohsumed_single_23
-    if exp_dataset == 'Ohsumed':
+    elif exp_dataset == 'Ohsumed':
         targets = {'training':'train', 'test':'test'}
         for target in targets:
-            trainind_data_path = os.path.join(DATA_PATH, DATA[exp_dataset], target)
+            trainind_data_path = os.path.join(data_path, dataset2folder[exp_dataset], target)
             for label in os.listdir(trainind_data_path):
                 for doc in os.listdir(os.path.join(trainind_data_path, label)):
                     lines = open(os.path.join(trainind_data_path, label, doc)).readlines()
@@ -48,7 +48,7 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
                     dataset.append((targets[target], label, text))
 
     # 20 ng
-    if exp_dataset =='20ng':
+    elif exp_dataset =='20ng':
         from sklearn.datasets import fetch_20newsgroups
 
         for target in ['train', 'test']:
@@ -56,7 +56,9 @@ def read_data(exp_dataset : str, data_path:str = 'dataset', dataset2folder:dict 
 
 
             dataset += list(map(lambda sample: (target, data['target_names'][sample[0]], sample[1].replace("\n", " ")), zip(data['target'], data['data'])))
-
+    else:
+        print("Wrong dataset!")
+        exit()
     print("\tDataset Loaded! Total:", len(dataset))
     return pd.DataFrame(dataset, columns=["target", "label", "text"])
 

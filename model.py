@@ -7,30 +7,37 @@ from torch.utils.data.dataset import random_split
 import time
 import numpy as np
 import pandas as pd
-
+from pprint import pprint
 
 
 class TextLevelGNN_Model:
-    def __init__(self, nums_node: int,
+    def __init__(self, word2idx: dict,
                        nums_classes: int,
                        word_embedding_dim: int,
                        pretrain_embedding: bool = False,
+                       pretrain_embedding_fix: bool = False,
                        seq_len: int=0,
                        ):
         
         print("\nModel Preparing..")
 
-        self.nums_node = nums_node
+        self.word2idx = word2idx
+        self.nums_node = len(word2idx) # all the distinct words including _PAD_ and _UNKNOWN_
 
+        
+        
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        print("Model Running on device:", self.device)
         self.word_embedding_dim = word_embedding_dim
         if pretrain_embedding:
             self.word_embedding_file = 'glove.twitter.27B.{}d.txt'.format(self.word_embedding_dim) if self.word_embedding_dim < 300 else 'glove.6B.{}d.txt'.format(self.word_embedding_dim)
             
-        
-        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        print("Model Running on device:", self.device)
-
-        self.model = TextLevelGNN(nums_node, word_embedding_dim, nums_classes, embeddings=self.load_pretrain_embedding()).to(self.device)
+        self.model = TextLevelGNN(self.nums_node,
+                                  word_embedding_dim,
+                                  nums_classes,
+                                  embeddings=(self.load_pretrain_embedding() if pretrain_embedding else 0),
+                                  embedding_fix=pretrain_embedding_fix
+                                  ).to(self.device)
         print("\n", self.model)
         
         self.data_train = None
@@ -40,17 +47,17 @@ class TextLevelGNN_Model:
 
     
     def load_pretrain_embedding(self):
-        print("\tLoading pretrain word embedding as:", self.word_embedding_file)
+        print("\tLoading pretrain word embedding from:", self.word_embedding_file)
 
         with open('embeddings/'+self.word_embedding_file, encoding="utf8") as f:
             lines = f.readlines()
-            embedding = np.random.random((len(lines), self.word_embedding_dim))
+            embedding = np.random.random((self.nums_node, self.word_embedding_dim))
             for line in f.readlines():
                 line_split = line.strip().split()
-                if line_split[0] in word_nodes:
-                    embedding[word_nodes.index(line_split[0])] = line_split[1:]
+                if line_split[0] in self.word2idx:
+                    embedding[self.word2idx[line_split[0]]] = line_split[1:]
 
-            embedding[0] = 0
+            embedding[0] = 0 # set the _PAD_ as 0
         return torch.tensor(embedding, dtype=torch.float)
 
     def set_dataset(self, data_pd: pd.DataFrame):
@@ -78,6 +85,7 @@ class TextLevelGNN_Model:
                         weight_decay: float = 0.0001,
                         early_stop_epochs: int = 15,
                         early_stop_monitor: str = "loss",
+                        warmup_epochs: int = 150,
                         ):
         
         # Define Learning Criteria
@@ -89,7 +97,19 @@ class TextLevelGNN_Model:
         valid_loss = 0        
         step_from_best = 0
         best_test = []
-        print("\nStart Training...")
+        print("\nStart Training and monitor on model {}...".format(early_stop_monitor))
+            
+        print("\nWARM UP training for {} epochs..".format(warmup_epochs))
+        for epoch in range(warmup_epochs):
+            start_time = time.time()
+            train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
+            valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
+
+            secs = int(time.time() - start_time)
+
+            print(f'[WARM UP] Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
+
+        print("WARMUP finished!\nTraining..")
         for epoch in range(epochs):
 
             start_time = time.time()
@@ -98,7 +118,7 @@ class TextLevelGNN_Model:
 
             secs = int(time.time() - start_time)
 
-            print(f'Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
+            print(f'Epoch:{warmup_epochs+epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
 
             if early_stop_epochs > 0:
                 if early_stop_monitor == "loss":
@@ -130,8 +150,8 @@ class TextLevelGNN_Model:
         print('\n End Training. Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
         print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
-        print("\nPrevious best accuracy records:", best_test)
-    
+        pprint("\Top 5 accuracy of testing record is found at:", list(sorted(best_test, key=lambda epoch_loss_acc: epoch_loss_acc[2], reverse=True))[:5])
+        
     def train_func(self, data_train, batch_size, criterion, optimizer):
 
         # Train the model
@@ -185,12 +205,12 @@ class TextLevelGNN_Model:
 
 class TextLevelGNN(nn.Module):
 
-    def __init__(self, num_nodes, node_feature_dim, class_num, embeddings=0):
+    def __init__(self, num_nodes, node_feature_dim, class_num, embeddings=0, embedding_fix=False):
         super(TextLevelGNN, self).__init__()
 
         if type(embeddings) != int:
             print("\tConstruct pretrained embeddings")
-            self.node_embedding = nn.Embedding.from_pretrained(embeddings, freeze=False, padding_idx=0)
+            self.node_embedding = nn.Embedding.from_pretrained(embeddings, freeze=embedding_fix, padding_idx=0)
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 
