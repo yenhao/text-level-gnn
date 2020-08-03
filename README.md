@@ -36,9 +36,9 @@ We are able to re-implement similar result on R8 and R52 dataset, while Ohsumed 
 
 | Accuracy | R8    | R52   | 20NG  | Ohsumed | MR |
 |----------|-------|-------|-------|---------|----|
-| Train    | 62.6% | 56.8% | 44.8% | 16.0%   | -  |
-| Valid    | 96.3% | 90.7% | 60.7% | 16.3%   | -  |
-| Test     | 96.4% | 91.0% | 55.6% | 23.4%   | -  |
+| Train    | 62.6% | 56.8% | 44.8% | 42.9%   | -  |
+| Valid    | 96.3% | 93.3% | 60.7% | 58.0%   | -  |
+| Test     | 96.4% | 91.7% | 55.6% | 54.1%   | -  |
 
 ---
 ## Todo

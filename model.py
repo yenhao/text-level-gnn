@@ -132,7 +132,7 @@ class TextLevelGNN_Model:
                         best_var_loss = valid_loss
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
                         
                 elif early_stop_monitor == "accuracy":
                     if valid_acc < best_var_acc:
@@ -145,7 +145,7 @@ class TextLevelGNN_Model:
                         best_var_acc = valid_acc
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
                         
         print('\n End Training. Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
