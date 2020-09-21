@@ -98,18 +98,20 @@ class TextLevelGNN_Model:
         step_from_best = 0
         best_test = []
         print("\nStart Training and monitor on model {}...".format(early_stop_monitor))
-            
-        print("\nWARM UP training for {} epochs..".format(warmup_epochs))
-        for epoch in range(warmup_epochs):
-            start_time = time.time()
-            train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
-            valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
+        
+        if warmup_epochs > 0:
+            print("\nWARM UP training for {} epochs..".format(warmup_epochs))
+            for epoch in range(warmup_epochs):
+                start_time = time.time()
+                train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
+                valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
 
-            secs = int(time.time() - start_time)
+                secs = int(time.time() - start_time)
 
-            print(f'[WARM UP] Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
+                print(f'[WARM UP] Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
 
-        print("WARMUP finished!\nTraining..")
+            print("WARMUP finished!")
+        print("Training..")
         for epoch in range(epochs):
 
             start_time = time.time()
@@ -242,7 +244,7 @@ class TextLevelGNN(nn.Module):
         Mn = self.node_embedding(NX) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE, EMBED_DIM)
 
         # EDGE WEIGHTS
-        En = self.edge_weights(NX) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE )
+        En = self.edge_weights(EW) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE )
 
         # get representation of Neighbors
         Mn = torch.sum(En * Mn, dim=2) # (BATCH, SEQ_LEN, EMBED_DIM)
