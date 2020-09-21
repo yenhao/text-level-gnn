@@ -162,7 +162,7 @@ def construct_word2idx(tokens_of_texts: list, minimum_word_count: int = 15) :
     word2idx = {word:i+1 for i,word in enumerate(qualified_words)}
     word2idx[0] = '_PAD_'
     word2idx[len(qualified_words) + 1] = '_UNKNOW_'
-    print("\tTotal words:", len(qualified_words), "Total # word embeddings:", len(word2idx))
+    print("\tTotal words:", len(qualified_words), ",Total # word embeddings:", len(word2idx))
     return word2idx
 
 def transform_word2idx_mp(tokens_of_texts: list, word2idx: dict) :

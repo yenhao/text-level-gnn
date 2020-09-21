@@ -217,7 +217,8 @@ class TextLevelGNN(nn.Module):
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 
-        self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes-1) + 1, 1, padding_idx=0) # +1 is padding
+        # self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes-1) + 1, 1, padding_idx=0) # +1 is padding
+        self.edge_weights = nn.Embedding(num_nodes * num_nodes, 1) # +1 is padding
         self.node_weights = nn.Embedding(num_nodes, 1, padding_idx=0) # Nn, node weight for itself
 
         self.fc = nn.Sequential(
@@ -259,6 +260,7 @@ class TextLevelGNN(nn.Module):
 
         # Aggragate node features for sentence
         X = Rn.sum(dim=1)
+
         y = self.fc(X)
         return y
 
@@ -276,7 +278,7 @@ class TextLevelGNNDataset(Dataset):
         self.NX = data_pd['X_Neighbors'].values
         self.y = data_pd['y'].values
 
-        self.num_words = num_nodes-1
+        self.num_words = num_nodes
 
         if max_len==0:
             self.max_len = max([len(text) for text in self.X])
@@ -290,7 +292,7 @@ class TextLevelGNNDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        # padding with 0
+        # do truncate or padding with 0 
         X = np.zeros(self.max_len, dtype=np.int)
         X[:min(len(self.X[idx]), self.max_len)] = np.array(self.X[idx])[:min(len(self.X[idx]), self.max_len)]
         NX = np.zeros((self.max_len, 4), dtype=np.int)
@@ -298,9 +300,9 @@ class TextLevelGNNDataset(Dataset):
 
 
         # calculate edge weight index (EW_idx), 0 is for padding with padding (0,0)
-        EW_idx = ((X-1)*self.num_words).reshape(-1,1)+NX
-        EW_idx[NX == 0] = 0 # set neighbor with PAD 0
-        EW_idx[X==0] = 0 # set PAD node as 0
+        EW_word_start_idx = ((X - 1) * self.num_words).reshape(-1, 1) 
+        EW_idx = EW_word_start_idx + NX
+        EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
 
         y = torch.tensor(self.y[idx], dtype=torch.long)
 
@@ -308,8 +310,5 @@ class TextLevelGNNDataset(Dataset):
                   'NX': NX,
                   'EW': EW_idx,
                   'y': y}
-
-#         if self.transform:
-#             sample = self.transform(sample)
 
         return sample
