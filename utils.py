@@ -128,10 +128,9 @@ def features_extracting(data_pd: pd.DataFrame, minimum_word_count: int = 15, nei
         dict: The dictionary that mapping word to index  
     """
     print("\n Feature Extracting..")
-    word2idx, unknow_idx = construct_word2idx(data_pd.tokens.to_list(), minimum_word_count= minimum_word_count)
+    word2idx = construct_word2idx(data_pd.tokens.to_list(), minimum_word_count= minimum_word_count)
 
     # get index representation of words
-    # data_pd['X'] = data_pd.tokens.apply(lambda tokens: [word2idx.get(w) if word2idx.get(w) else unknow_idx for w in tokens])
     data_pd['X'] = transform_word2idx_mp(data_pd.tokens.to_list(), word2idx=word2idx)
 
     # get word's neighbors with specific neighbor distance
@@ -158,13 +157,13 @@ def construct_word2idx(tokens_of_texts: list, minimum_word_count: int = 15) :
     print("\tMost common words:", word_counts.most_common(10))
     # remove rare words
     qualified_words = [w for w,v in word_counts.items() if v > minimum_word_count]
-    print("\tTotal words:", len(qualified_words))
-
+    
 
     word2idx = {word:i+1 for i,word in enumerate(qualified_words)}
     word2idx[0] = '_PAD_'
-    word2idx[len(qualified_words)] = '_UNKNOW_'
-    return word2idx, len(qualified_words)
+    word2idx[len(qualified_words) + 1] = '_UNKNOW_'
+    print("\tTotal words:", len(qualified_words), "Total # word embeddings:", len(word2idx))
+    return word2idx
 
 def transform_word2idx_mp(tokens_of_texts: list, word2idx: dict) :
     """Multi processing version of converting a set of word token to it's index
