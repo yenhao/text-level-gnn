@@ -181,7 +181,7 @@ class TextLevelGNN_Model:
         return train_loss / len(data_train), train_acc / len(data_train)
 
     def test_func(self, data_test, batch_size, criterion):
-        loss = 0
+        test_loss = 0
         acc = 0
         data = DataLoader(data_test, batch_size=batch_size, num_workers=8)
 
@@ -195,10 +195,10 @@ class TextLevelGNN_Model:
             with torch.no_grad():
                 output = self.model(X, NX, EW)
                 loss = criterion(output, y)
-                loss += loss.item()
+                test_loss += loss.item()
                 acc += (output.argmax(1) == y).sum().item()
 
-        return loss / len(data_test), acc / len(data_test)
+        return test_loss / len(data_test), acc / len(data_test)
 
     def get_torch_model(self):
         return self.model
