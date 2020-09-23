@@ -4,11 +4,14 @@ from torch import nn, tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataset import random_split
+from torch.optim.lr_scheduler import StepLR
 import time
 import numpy as np
 import pandas as pd
 from pprint import pprint
 
+
+random_seed = 42
 
 class TextLevelGNN_Model:
     def __init__(self, word2idx: dict,
@@ -51,6 +54,7 @@ class TextLevelGNN_Model:
 
         with open('embeddings/'+self.word_embedding_file, encoding="utf8") as f:
             lines = f.readlines()
+            np.random.seed(random_seed)
             embedding = np.random.random((self.nums_node, self.word_embedding_dim))
             for line in f.readlines():
                 line_split = line.strip().split()
@@ -67,6 +71,7 @@ class TextLevelGNN_Model:
         # Split validation from trainind dataset if there is no validation dataset
         if len(data_pd[data_pd.target == 'valid']) == 0:
             train_len = int(len(data_tr) * 0.9)
+            torch.manual_seed(random_seed)
             sub_train_, sub_valid_ = random_split(data_tr, [train_len, len(data_tr) - train_len])
 
             self.data_train = sub_train_
@@ -92,31 +97,36 @@ class TextLevelGNN_Model:
         criterion = torch.nn.CrossEntropyLoss().to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
 
+        scheduler = StepLR(optimizer, step_size=25, gamma=0.5)
+
         best_var_loss = 5
         best_var_acc = 0
         valid_loss = 0        
         step_from_best = 0
         best_test = []
         print("\nStart Training and monitor on model {}...".format(early_stop_monitor))
-            
-        print("\nWARM UP training for {} epochs..".format(warmup_epochs))
-        for epoch in range(warmup_epochs):
-            start_time = time.time()
-            train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
-            valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
+        
+        if warmup_epochs > 0:
+            print("\nWARM UP training for {} epochs..".format(warmup_epochs))
+            for epoch in range(warmup_epochs):
+                start_time = time.time()
+                train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
+                valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
 
-            secs = int(time.time() - start_time)
+                secs = int(time.time() - start_time)
 
-            print(f'[WARM UP] Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
+                print(f'[WARM UP] Epoch:{epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
 
-        print("WARMUP finished!\nTraining..")
+            print("WARMUP finished!")
+        print("Training..")
         for epoch in range(epochs):
 
             start_time = time.time()
             train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
             valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
-
+            
             secs = int(time.time() - start_time)
+            scheduler.step()
 
             print(f'Epoch:{warmup_epochs+epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
 
@@ -132,7 +142,7 @@ class TextLevelGNN_Model:
                         best_var_loss = valid_loss
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
                         
                 elif early_stop_monitor == "accuracy":
                     if valid_acc < best_var_acc:
@@ -145,7 +155,7 @@ class TextLevelGNN_Model:
                         best_var_acc = valid_acc
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
                         
         print('\n End Training. Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
@@ -175,11 +185,11 @@ class TextLevelGNN_Model:
             loss.backward()
             optimizer.step()
             train_acc += (output.argmax(1) == y).sum().item()
-
+            
         return train_loss / len(data_train), train_acc / len(data_train)
 
     def test_func(self, data_test, batch_size, criterion):
-        loss = 0
+        test_loss = 0
         acc = 0
         data = DataLoader(data_test, batch_size=batch_size, num_workers=8)
 
@@ -193,10 +203,10 @@ class TextLevelGNN_Model:
             with torch.no_grad():
                 output = self.model(X, NX, EW)
                 loss = criterion(output, y)
-                loss += loss.item()
+                test_loss += loss.item()
                 acc += (output.argmax(1) == y).sum().item()
 
-        return loss / len(data_test), acc / len(data_test)
+        return test_loss / len(data_test), acc / len(data_test)
 
     def get_torch_model(self):
         return self.model
@@ -215,7 +225,8 @@ class TextLevelGNN(nn.Module):
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 
-        self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes-1) + 1, 1, padding_idx=0) # +1 is padding
+        # self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes-1) + 1, 1, padding_idx=0) # +1 is padding
+        self.edge_weights = nn.Embedding(num_nodes * num_nodes, 1) # +1 is padding
         self.node_weights = nn.Embedding(num_nodes, 1, padding_idx=0) # Nn, node weight for itself
 
         self.fc = nn.Sequential(
@@ -242,7 +253,7 @@ class TextLevelGNN(nn.Module):
         Mn = self.node_embedding(NX) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE, EMBED_DIM)
 
         # EDGE WEIGHTS
-        En = self.edge_weights(NX) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE )
+        En = self.edge_weights(EW) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE )
 
         # get representation of Neighbors
         Mn = torch.sum(En * Mn, dim=2) # (BATCH, SEQ_LEN, EMBED_DIM)
@@ -257,6 +268,7 @@ class TextLevelGNN(nn.Module):
 
         # Aggragate node features for sentence
         X = Rn.sum(dim=1)
+
         y = self.fc(X)
         return y
 
@@ -274,7 +286,7 @@ class TextLevelGNNDataset(Dataset):
         self.NX = data_pd['X_Neighbors'].values
         self.y = data_pd['y'].values
 
-        self.num_words = num_nodes-1
+        self.num_words = num_nodes
 
         if max_len==0:
             self.max_len = max([len(text) for text in self.X])
@@ -288,7 +300,7 @@ class TextLevelGNNDataset(Dataset):
         if torch.is_tensor(idx):
             idx = idx.tolist()
 
-        # padding with 0
+        # do truncate or padding with 0 
         X = np.zeros(self.max_len, dtype=np.int)
         X[:min(len(self.X[idx]), self.max_len)] = np.array(self.X[idx])[:min(len(self.X[idx]), self.max_len)]
         NX = np.zeros((self.max_len, 4), dtype=np.int)
@@ -296,9 +308,9 @@ class TextLevelGNNDataset(Dataset):
 
 
         # calculate edge weight index (EW_idx), 0 is for padding with padding (0,0)
-        EW_idx = ((X-1)*self.num_words).reshape(-1,1)+NX
-        EW_idx[NX == 0] = 0 # set neighbor with PAD 0
-        EW_idx[X==0] = 0 # set PAD node as 0
+        EW_word_start_idx = ((X - 1) * self.num_words).reshape(-1, 1) 
+        EW_idx = EW_word_start_idx + NX
+        EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
 
         y = torch.tensor(self.y[idx], dtype=torch.long)
 
@@ -306,8 +318,5 @@ class TextLevelGNNDataset(Dataset):
                   'NX': NX,
                   'EW': EW_idx,
                   'y': y}
-
-#         if self.transform:
-#             sample = self.transform(sample)
 
         return sample

@@ -16,15 +16,15 @@ print("Experiment on :", experiment_dataset) #, sys.argv)
 
 ### HYPER PARAMETERS
 MIN_WORD_COUNT = 15  # the word with frequency less than this num will be remove and consider as unknown word later on (probabily is the k mention in paper)
-NEIGHBOR_DISTANCE = 2  # same as paper's one
+NEIGHBOR_DISTANCE = 2  # same as paper
 
 WORD_EMBED_DIM = 200 # dimension for word embedding
 PRETRAIN_EMBEDDING = True  # use pretrain embedding or not
 PRETRAIN_EMBEDDING_FIX = False # skip the training for pretrain embedding or not
 MODEL_MAX_SEQ_LEN = 0  # the length of text should the model encode/learning, set 0 to consider all
 
-N_EPOCHS = 1000
-WARMUP_EPOCHS = 250  # VERY important to reproduce their result in this implementation..
+N_EPOCHS = 500
+WARMUP_EPOCHS = 50  # Try warm up
 
 ## Training params from paper
 BATCH_SIZE = 32
@@ -58,20 +58,22 @@ text_level_gnn.set_dataset(data_pd)
 # Training and Evaluation
 text_level_gnn.train_eval(N_EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY, EARLY_STOP_EPOCHS, EARLY_STOP_MONITOR, WARMUP_EPOCHS)
 
-
-
-
 """
+BEST RESULT
+
 R8 (8 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:235]
 Acc: 63.1%(train)   97.8%(valid)    96.6%(test)
 
 R52 (52 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:324]
 Acc: 55.6%(train)   93.3%(valid)    91.7%(test)
 
-20ng (20 cls) [embedding_dim=200, early_stop_monitor="accuracy"]
+20ng (20 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:320]
 Acc: 47.3%(train)       64.2%(valid)    57.2%(test)
 
 Ohsumed (23 cls) [embedding_dim=200]
 Acc: 42.9%(train)       58.0%(valid)    54.1%(test)
+
+MR (2 cls) [embedding_dim=200, early_stop_monitor="loss", at epoch:351 ]
+Acc: 69.3%(train)       72.0%(valid)    69.0%(test)
 """
 
