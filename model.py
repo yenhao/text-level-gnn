@@ -4,11 +4,14 @@ from torch import nn, tensor
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from torch.utils.data.dataset import random_split
+from torch.optim.lr_scheduler import StepLR
 import time
 import numpy as np
 import pandas as pd
 from pprint import pprint
 
+
+random_seed = 42
 
 class TextLevelGNN_Model:
     def __init__(self, word2idx: dict,
@@ -51,6 +54,7 @@ class TextLevelGNN_Model:
 
         with open('embeddings/'+self.word_embedding_file, encoding="utf8") as f:
             lines = f.readlines()
+            np.random.seed(random_seed)
             embedding = np.random.random((self.nums_node, self.word_embedding_dim))
             for line in f.readlines():
                 line_split = line.strip().split()
@@ -67,6 +71,7 @@ class TextLevelGNN_Model:
         # Split validation from trainind dataset if there is no validation dataset
         if len(data_pd[data_pd.target == 'valid']) == 0:
             train_len = int(len(data_tr) * 0.9)
+            torch.manual_seed(random_seed)
             sub_train_, sub_valid_ = random_split(data_tr, [train_len, len(data_tr) - train_len])
 
             self.data_train = sub_train_
@@ -91,6 +96,8 @@ class TextLevelGNN_Model:
         # Define Learning Criteria
         criterion = torch.nn.CrossEntropyLoss().to(self.device)
         optimizer = torch.optim.Adam(self.model.parameters(), lr=learning_rate, weight_decay=weight_decay)
+
+        scheduler = StepLR(optimizer, step_size=25, gamma=0.5)
 
         best_var_loss = 5
         best_var_acc = 0
@@ -117,8 +124,9 @@ class TextLevelGNN_Model:
             start_time = time.time()
             train_loss, train_acc = self.train_func(self.data_train, batch_size, criterion, optimizer)
             valid_loss, valid_acc = self.test_func(self.data_valid, batch_size, criterion)
-
+            
             secs = int(time.time() - start_time)
+            scheduler.step()
 
             print(f'Epoch:{warmup_epochs+epoch+1:4d} ({secs:2d} sec)\t|\tLoss: {train_loss:.4f}(train)\t{valid_loss:.4f}(valid)\t|\tAcc: {train_acc * 100:.1f}%(train)\t{valid_acc * 100:.1f}%(valid)')
 
@@ -134,7 +142,7 @@ class TextLevelGNN_Model:
                         best_var_loss = valid_loss
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
                         
                 elif early_stop_monitor == "accuracy":
                     if valid_acc < best_var_acc:
@@ -147,7 +155,7 @@ class TextLevelGNN_Model:
                         best_var_acc = valid_acc
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
-                        best_test.append((warmup_epochs+epoch + 1, test_loss.cpu().item(), test_acc))
+                        best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
                         
         print('\n End Training. Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
@@ -177,7 +185,7 @@ class TextLevelGNN_Model:
             loss.backward()
             optimizer.step()
             train_acc += (output.argmax(1) == y).sum().item()
-
+            
         return train_loss / len(data_train), train_acc / len(data_train)
 
     def test_func(self, data_test, batch_size, criterion):
