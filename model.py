@@ -159,6 +159,9 @@ class TextLevelGNN_Model:
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
                         best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
+                        if valid_acc > save_threshold:
+                            torch.save(self.model.state_dict(), save_path)
+                            print("\t Saving model.")
                         
         print('\nEnd Training. Load best model from:', save_path)
         self.model.load_state_dict(torch.load(save_path))
@@ -230,15 +233,18 @@ class TextLevelGNN(nn.Module):
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 
-        self.edge_weights = nn.Embedding(num_nodes * num_nodes, 1)
+        self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes)+1, 1, padding_idx=0) # +1 for padding
         self.node_weights = nn.Embedding(num_nodes, 1, padding_idx=0) # Nn, node weight for itself
 
         self.fc = nn.Sequential(
             nn.Linear(node_feature_dim, class_num, bias=True),
             nn.ReLU(inplace=True),
-            # nn.Dropout(0.5), # doesn't make sense..
-            # nn.Softmax(dim=1)
+            nn.Dropout(0.5), # doesn't make sense..
         )
+        self.reset_params()
+    def reset_params(self):
+        nn.init.xavier_uniform_(self.edge_weights.weight)
+        nn.init.xavier_uniform_(self.node_weights.weight)
 
     def forward(self, X, NX, EW):
         """
@@ -315,9 +321,9 @@ class TextLevelGNNDataset(Dataset):
 
 
         # calculate edge weight index (EW_idx), 0 is for padding with padding (0,0)
-        EW_word_start_idx = (X * self.num_words).reshape(-1, 1) 
+        EW_word_start_idx = ((X-1) * self.num_words).reshape(-1, 1) 
         EW_idx = EW_word_start_idx + NX
-        # EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
+        EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
 
         y = torch.tensor(self.y[idx], dtype=torch.long)
 
