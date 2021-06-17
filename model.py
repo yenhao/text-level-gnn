@@ -19,7 +19,7 @@ class TextLevelGNN_Model:
                        word_embedding_dim: int,
                        pretrain_embedding: bool = False,
                        pretrain_embedding_fix: bool = False,
-                       seq_len: int=0,
+                       seq_len: int=0
                        ):
         
         print("\nModel Preparing..")
@@ -47,8 +47,6 @@ class TextLevelGNN_Model:
         self.data_valid = None
         self.data_test = None
         self.seq_len = seq_len
-
-    
     def load_pretrain_embedding(self):
         print("\tLoading pretrain word embedding from:", self.word_embedding_file)
 
@@ -64,9 +62,9 @@ class TextLevelGNN_Model:
             embedding[0] = 0 # set the _PAD_ as 0
         return torch.tensor(embedding, dtype=torch.float)
 
-    def set_dataset(self, data_pd: pd.DataFrame):
+    def set_dataset(self, data_pd: pd.DataFrame, neighbor_distance: int):
         
-        data_tr = TextLevelGNNDataset(data_pd[data_pd.target == 'train'], self.nums_node, max_len=self.seq_len)
+        data_tr = TextLevelGNNDataset(data_pd[data_pd.target == 'train'], self.nums_node, max_len=self.seq_len, distance=neighbor_distance)
         
         # Split validation from trainind dataset if there is no validation dataset
         if len(data_pd[data_pd.target == 'valid']) == 0:
@@ -78,9 +76,9 @@ class TextLevelGNN_Model:
             self.data_valid = sub_valid_
         else:
             self.data_train = data_tr
-            self.data_valid = TextLevelGNNDataset(data_pd[data_pd.target == 'valid'], self.nums_node, max_len=self.seq_len)
+            self.data_valid = TextLevelGNNDataset(data_pd[data_pd.target == 'valid'], self.nums_node, max_len=self.seq_len, distance=neighbor_distance)
 
-        self.data_test = TextLevelGNNDataset(data_pd[data_pd.target=='test'], self.nums_node, max_len=self.seq_len)
+        self.data_test = TextLevelGNNDataset(data_pd[data_pd.target=='test'], self.nums_node, max_len=self.seq_len, distance=neighbor_distance)
 
         print("\tData size: {} train, {} valid, {} test".format(len(self.data_train), len(self.data_valid),len(self.data_test)))
 
@@ -91,6 +89,8 @@ class TextLevelGNN_Model:
                         early_stop_epochs: int = 15,
                         early_stop_monitor: str = "loss",
                         warmup_epochs: int = 150,
+                        save_path: str = "/tmp/model.pt",
+                        save_threshold: float = 0.9
                         ):
         
         # Define Learning Criteria
@@ -143,6 +143,9 @@ class TextLevelGNN_Model:
                         step_from_best = 0
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
                         best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
+                        if valid_acc > save_threshold:
+                            torch.save(self.model.state_dict(), save_path)
+                            print("\t Saving model.")
                         
                 elif early_stop_monitor == "accuracy":
                     if valid_acc < best_var_acc:
@@ -157,7 +160,9 @@ class TextLevelGNN_Model:
                         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
                         best_test.append((warmup_epochs+epoch + 1, test_loss, test_acc))
                         
-        print('\n End Training. Checking the results of test dataset...')
+        print('\nEnd Training. Load best model from:', save_path)
+        self.model.load_state_dict(torch.load(save_path))
+        print('Checking the results of test dataset...')
         test_loss, test_acc = self.test_func(self.data_test, batch_size, criterion)
         print(f'\tLoss: {test_loss:.4f}(test)\t|\tAcc: {test_acc * 100:.1f}%(test)')
         print("Top 5 accuracy of testing record is found at (epoch, loss, accuracy):")
@@ -225,15 +230,14 @@ class TextLevelGNN(nn.Module):
         else:
             self.node_embedding = nn.Embedding(num_nodes, node_feature_dim, padding_idx = 0)
 
-        # self.edge_weights = nn.Embedding((num_nodes-1) * (num_nodes-1) + 1, 1, padding_idx=0) # +1 is padding
-        self.edge_weights = nn.Embedding(num_nodes * num_nodes, 1) # +1 is padding
+        self.edge_weights = nn.Embedding(num_nodes * num_nodes, 1)
         self.node_weights = nn.Embedding(num_nodes, 1, padding_idx=0) # Nn, node weight for itself
 
         self.fc = nn.Sequential(
             nn.Linear(node_feature_dim, class_num, bias=True),
             nn.ReLU(inplace=True),
-            nn.Dropout(0.5),
-            nn.Softmax(dim=1)
+            # nn.Dropout(0.5), # doesn't make sense..
+            # nn.Softmax(dim=1)
         )
 
     def forward(self, X, NX, EW):
@@ -256,7 +260,7 @@ class TextLevelGNN(nn.Module):
         En = self.edge_weights(EW) # (BATCH, SEQ_LEN, NEIGHBOR_SIZE )
 
         # get representation of Neighbors
-        Mn = torch.sum(En * Mn, dim=2) # (BATCH, SEQ_LEN, EMBED_DIM)
+        Mn = torch.max(En * Mn, dim=2).values # (BATCH, SEQ_LEN, EMBED_DIM)
 
         # Self Features (Rn)
         Rn = self.node_embedding(X) # (BATCH, SEQ_LEN, EMBED_DIM)
@@ -264,19 +268,21 @@ class TextLevelGNN(nn.Module):
         ## Aggregate information from neighbor
         # get self node weight (Nn)
         Nn = self.node_weights(X)
-        Rn = (1 - Nn) * Mn + Nn * Rn
 
+        Rn = (1 - Nn) * Mn + Nn * Rn
         # Aggragate node features for sentence
-        X = Rn.sum(dim=1)
+        X = torch.sum(Rn, dim=1)
 
         y = self.fc(X)
+        # print(y)
+        # exit()
         return y
 
 
 
 class TextLevelGNNDataset(Dataset):
 
-    def __init__(self, data_pd, num_nodes, max_len=0, transform=None):
+    def __init__(self, data_pd, num_nodes, max_len=0, transform=None, distance=2):
         """
         Args:
             num_nodes : number of nodes including padding
@@ -287,6 +293,7 @@ class TextLevelGNNDataset(Dataset):
         self.y = data_pd['y'].values
 
         self.num_words = num_nodes
+        self.distance = distance
 
         if max_len==0:
             self.max_len = max([len(text) for text in self.X])
@@ -303,14 +310,14 @@ class TextLevelGNNDataset(Dataset):
         # do truncate or padding with 0 
         X = np.zeros(self.max_len, dtype=np.int)
         X[:min(len(self.X[idx]), self.max_len)] = np.array(self.X[idx])[:min(len(self.X[idx]), self.max_len)]
-        NX = np.zeros((self.max_len, 4), dtype=np.int)
+        NX = np.zeros((self.max_len, self.distance*2), dtype=np.int)
         NX[:min(len(self.NX[idx]), self.max_len),:] = np.array(self.NX[idx])[:min(len(self.NX[idx]), self.max_len),:]
 
 
         # calculate edge weight index (EW_idx), 0 is for padding with padding (0,0)
-        EW_word_start_idx = ((X - 1) * self.num_words).reshape(-1, 1) 
+        EW_word_start_idx = (X * self.num_words).reshape(-1, 1) 
         EW_idx = EW_word_start_idx + NX
-        EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
+        # EW_idx[X==0] = 0 # set PAD node as 0, otherwise it will be negative because of (X-1)
 
         y = torch.tensor(self.y[idx], dtype=torch.long)
 

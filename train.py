@@ -15,23 +15,25 @@ experiment_dataset = sys.argv[1]
 print("Experiment on :", experiment_dataset) #, sys.argv)
 
 ### HYPER PARAMETERS
-MIN_WORD_COUNT = 15  # the word with frequency less than this num will be remove and consider as unknown word later on (probabily is the k mention in paper)
-NEIGHBOR_DISTANCE = 2  # same as paper
+MIN_WORD_COUNT = 2  if experiment_dataset != "Ohsumed" else 3 # the word with frequency less than this num will be remove and consider as unknown word later on (probabily is the k mention in paper)
+NEIGHBOR_DISTANCE = 2 if experiment_dataset != "Ohsumed" else 4 # check paper Figure 2 for different dataset (3 for R8, 6 for Ohsumed)
 
-WORD_EMBED_DIM = 200 # dimension for word embedding
+WORD_EMBED_DIM = 300 # dimension for word embedding
 PRETRAIN_EMBEDDING = True  # use pretrain embedding or not
 PRETRAIN_EMBEDDING_FIX = False # skip the training for pretrain embedding or not
-MODEL_MAX_SEQ_LEN = 0  # the length of text should the model encode/learning, set 0 to consider all
+MODEL_MAX_SEQ_LEN = 100 if experiment_dataset != "Ohsumed" else 150 # the length of text should the model encode/learning, set 0 to consider all (paper didn't specific) Values are set according to avg. length
 
 N_EPOCHS = 500
-WARMUP_EPOCHS = 50  # Try warm up
+WARMUP_EPOCHS = 0  if experiment_dataset != "Ohsumed" else 50 # Try warm up
 
 ## Training params from paper
 BATCH_SIZE = 32
 LEARNING_RATE = 0.001
 WEIGHT_DECAY = 0.0001
-EARLY_STOP_EPOCHS = 50  # after n_epochs not improve then stop training
+EARLY_STOP_EPOCHS = 10  # after n_epochs not improve then stop training
 EARLY_STOP_MONITOR = "loss" # monitor early stop on validation's loss or accuracy.
+MODEL_SAVE_PATH = "/tmp/text-level-gnn-{}.pt".format(experiment_dataset)
+SAVE_ACC_THRES = 0.9 if experiment_dataset != "Ohsumed" else 0.2
 ###
 
 # Read dataset
@@ -53,10 +55,10 @@ NUM_CLASSES = len(set(data_pd['y'].values))
 text_level_gnn = model.TextLevelGNN_Model(word2idx, NUM_CLASSES, WORD_EMBED_DIM, PRETRAIN_EMBEDDING, PRETRAIN_EMBEDDING_FIX, MODEL_MAX_SEQ_LEN)
 
 # Assign experiment dataset
-text_level_gnn.set_dataset(data_pd)
+text_level_gnn.set_dataset(data_pd, NEIGHBOR_DISTANCE)
 
 # Training and Evaluation
-text_level_gnn.train_eval(N_EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY, EARLY_STOP_EPOCHS, EARLY_STOP_MONITOR, WARMUP_EPOCHS)
+text_level_gnn.train_eval(N_EPOCHS, BATCH_SIZE, LEARNING_RATE, WEIGHT_DECAY, EARLY_STOP_EPOCHS, EARLY_STOP_MONITOR, WARMUP_EPOCHS, MODEL_SAVE_PATH, SAVE_ACC_THRES)
 
 """
 BEST RESULT
