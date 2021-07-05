@@ -45,6 +45,6 @@ We are only able to implement similar result on R8 and R52 dataset, while Ohsume
 Note that the training accuracy is lower because that the author set the dropout right after dense layer.
 ---
 ## Todo
-- [] **Implement the public edge**: Implement by adding an **UNKNOW** word node, but not sure about what the public edge really is. Maybe a public edge weight? (In paper: *we uniformly map the edges that occur less than k times in the training set to a “public” edge to make parameters adequately trained.*)
+- [x] **Implement the public edge**: Implement by adding an **UNKNOW** word node, but not sure about what the public edge really is. Maybe a public edge weight? (In paper: *we uniformly map the edges that occur less than k times in the training set to a “public” edge to make parameters adequately trained.*)
 - [ ] Result Improvement.
 - [x] Save model.
